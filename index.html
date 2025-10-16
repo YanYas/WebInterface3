@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Properties Display</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4a9eff;
+        }
+
+        .property {
+            margin-bottom: 25px;
+            padding: 20px;
+            background-color: #333;
+            border-radius: 8px;
+        }
+
+        .property-label {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .property-value {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .chase-mode.on {
+            color: #00ff00;
+        }
+
+        .chase-mode.off {
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Race Monitor</h1>
+
+        <div class="property">
+            <div class="property-label">Time</div>
+            <div class="property-value" id="time">--:--</div>
+        </div>
+
+        <div class="property">
+            <div class="property-label">Target Speed</div>
+            <div class="property-value" id="targetSpeed">-- KMPH</div>
+        </div>
+
+        <div class="property">
+            <div class="property-label">Chase Mode</div>
+            <div class="property-value chase-mode off" id="chaseMode">OFF</div>
+        </div>
+    </div>
+
+    <script>
+        // MQTT Configuration - Update these values for your broker
+        const BROKER = 'public.cloud.shiftr.io';
+        const PORT = 443;
+        const TOPIC_BASE = 'the_race';
+
+        const clientId = 'mqttjs_' + Math.random().toString(16).substr(2, 8);
+        const client = new Paho.MQTT.Client(BROKER, PORT, '/mqtt', clientId);
+
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        // Connect on page load
+        client.connect({
+            onSuccess: onConnect,
+            onFailure: onFailure,
+            useSSL: true,
+            userName: 'public',
+            password: 'public'
+        });
+
+        function onConnect() {
+            console.log('Connected to MQTT broker');
+            
+            client.subscribe(TOPIC_BASE + '/time');
+            client.subscribe(TOPIC_BASE + '/target_speed');
+            client.subscribe(TOPIC_BASE + '/chase_mode');
+            
+            console.log('Subscribed to topics');
+        }
+
+        function onFailure(error) {
+            console.error('Connection failed:', error);
+        }
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log('Connection lost:', responseObject.errorMessage);
+            }
+        }
+
+        function onMessageArrived(message) {
+            const topic = message.destinationName;
+            const payload = message.payloadString;
+            
+            console.log('Message received:', topic, payload);
+
+            if (topic === TOPIC_BASE + '/time') {
+                document.getElementById('time').textContent = payload;
+            } else if (topic === TOPIC_BASE + '/target_speed') {
+                document.getElementById('targetSpeed').textContent = payload + ' KMPH';
+            } else if (topic === TOPIC_BASE + '/chase_mode') {
+                const chaseElement = document.getElementById('chaseMode');
+                const value = payload.toUpperCase();
+                chaseElement.textContent = value;
+                
+                if (value === 'ON') {
+                    chaseElement.className = 'property-value chase-mode on';
+                } else {
+                    chaseElement.className = 'property-value chase-mode off';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
